@@ -41,9 +41,9 @@ export default function DashboardPage() {
         <Topbar title={isSupervisor ? "Visão de Supervisão" : "Painel de Notas"} />
         <div className="mt-6">
           {isSupervisor ? (
-            <SupervisorDashboard data={[]} loading={false} />
+            <SupervisorDashboard />
           ) : (
-            <TabbedView data={[]} loading={false} />
+            <TabbedView />
           )}
         </div>
       </div>

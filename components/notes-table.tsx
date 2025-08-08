@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Download, CheckCircle2 } from 'lucide-react'
+import { Download, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react'
 import { useAppStore } from "@/components/store"
 import { downloadCSV, notesToCSV } from "@/lib/csv"
 import type { Note } from "@/types/note"
@@ -30,6 +30,8 @@ type Props = {
   rows?: Note[]
   tabKey?: string
   loading?: boolean
+  error?: string | null
+  onRefresh?: () => void
 }
 
 export default function NotesTable({
@@ -37,6 +39,8 @@ export default function NotesTable({
   rows = [],
   tabKey = "principal",
   loading = false,
+  error = null,
+  onRefresh,
 }: Props) {
   const { filters } = useAppStore()
   // Estado local para marcar linhas tratadas. Guarda IDs.
@@ -51,7 +55,7 @@ export default function NotesTable({
     })
   }
 
-  // Função de filtro por data e texto (global)
+  // Função de filtro por data e texto (aplicado no backend via API, mas mantém lógica local para compatibilidade)
   const filtered = useMemo(() => {
     const text = filters.text.trim().toLowerCase()
     const dateUpTo = filters.dateUpTo ? new Date(filters.dateUpTo) : null
@@ -94,12 +98,32 @@ export default function NotesTable({
   return (
     <section className="rounded-xl border border-neutral-800 bg-neutral-900/60 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-        <h3 className="text-sm font-medium text-neutral-300">{title}</h3>
+        <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
+          {title}
+          {loading && (
+            <div className="animate-spin h-4 w-4 border-2 border-neutral-500 border-t-transparent rounded-full"></div>
+          )}
+        </h3>
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={loading}
+              className="text-neutral-300 hover:text-white hover:bg-neutral-800"
+              aria-label="Atualizar dados"
+              title="Atualizar dados"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleExport}
+            disabled={loading || filtered.length === 0}
             className="text-neutral-300 hover:text-white hover:bg-neutral-800"
             aria-label="Exportar tabela (CSV)"
             title="Exportar tabela (CSV)"
@@ -109,6 +133,24 @@ export default function NotesTable({
           </Button>
         </div>
       </div>
+
+      {/* Indicador de erro */}
+      {error && (
+        <div className="mx-4 mt-3 p-3 rounded-lg border border-red-800/50 bg-red-950/40 flex items-center gap-2 text-red-200">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="text-sm">Erro: {error}</span>
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              className="ml-auto text-red-200 hover:text-red-100 hover:bg-red-900/30"
+            >
+              Tentar novamente
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="relative w-full overflow-auto">
         <table className="w-full caption-bottom text-sm">
@@ -132,13 +174,25 @@ export default function NotesTable({
             {loading ? (
               <tr>
                 <td colSpan={COLUMNS.length + 1} className="px-3 py-10 text-center text-neutral-400">
-                  Carregando...
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin h-5 w-5 border-2 border-neutral-500 border-t-transparent rounded-full"></div>
+                    Carregando dados...
+                  </div>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={COLUMNS.length + 1} className="px-3 py-10 text-center text-red-400">
+                  Erro ao carregar dados. {onRefresh && "Clique em 'Atualizar' para tentar novamente."}
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={COLUMNS.length + 1} className="px-3 py-10 text-center text-neutral-400">
-                  Nenhum registro encontrado para os filtros atuais.
+                  {rows.length === 0 
+                    ? "Nenhum registro encontrado nesta categoria."
+                    : "Nenhum registro encontrado para os filtros atuais."
+                  }
                 </td>
               </tr>
             ) : (
@@ -186,7 +240,13 @@ export default function NotesTable({
       </div>
 
       <div className="px-4 py-3 border-t border-neutral-800 text-xs text-neutral-500">
-        {filtered.length} linha(s) exibida(s).
+        {loading ? (
+          "Carregando..."
+        ) : error ? (
+          `Erro ao carregar dados`
+        ) : (
+          `${filtered.length} linha(s) exibida(s) de ${rows.length} total.`
+        )}
       </div>
     </section>
   )

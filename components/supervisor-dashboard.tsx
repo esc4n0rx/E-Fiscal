@@ -5,10 +5,11 @@ import type { Note } from "@/types/note"
 import Filters from "@/components/filters"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Files, DollarSign, Clock, CheckCircle2, UserIcon } from 'lucide-react'
+import { Files, DollarSign, Clock, CheckCircle2, UserIcon, RefreshCw } from 'lucide-react'
 import { cn } from "@/lib/utils"
-import { useAppStore } from "@/components/store"
+import { useAllNotas } from "@/hooks/use-notas"
 
 // Tipos locais para enriquecer as notas com metadados de supervisão
 type NoteWithMeta = Note & {
@@ -89,63 +90,27 @@ function formatBRL(v: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0)
 }
 
-export default function SupervisorDashboard({
-  data = [],
-  loading = false,
-}: {
-  data?: Note[]
-  loading?: boolean
-}) {
-  const { filters } = useAppStore()
+export default function SupervisorDashboard() {
+  // Busca todas as notas (sem filtro de categoria)
+  const { notes: data, loading, error, refresh } = useAllNotas()
 
-  // Aplica enriquecimento e filtros (mesma lógica de filtro de texto e data)
-  const filtered = useMemo<NoteWithMeta[]>(() => {
-    const text = filters.text.trim().toLowerCase()
-    const dateUpTo = filters.dateUpTo ? new Date(filters.dateUpTo) : null
-    const enriched = enrichNotes(data)
-    return enriched.filter((r) => {
-      // Filtro por data de emissão (<= dateUpTo)
-      if (dateUpTo) {
-        const rd = new Date(r.data)
-        if (isFinite(rd.getTime()) && rd > dateUpTo) return false
-      }
-      if (!text) return true
-      const hay = [
-        r.centro,
-        r.data,
-        r.notaFiscal,
-        r.loja,
-        r.nomeLoja,
-        r.material,
-        r.descricao,
-        r.pedido,
-        String(r.quantidade),
-        r.umb,
-        String(r.valor),
-        r.remessa,
-        r.mensagem,
-        r.assignedTo,
-        r.aba,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return hay.includes(text)
-    })
-  }, [data, filters])
+  // Aplica enriquecimento (mesma lógica de filtro está no hook)
+  const enrichedData = useMemo<NoteWithMeta[]>(() => {
+    return enrichNotes(data)
+  }, [data])
 
   // Agregações
   const totals = useMemo(() => {
-    const totalNotes = filtered.length
-    const totalValue = filtered.reduce((acc, n) => acc + (Number(n.valor) || 0), 0)
-    const overdueCount = filtered.filter((n) => n.isOverdue).length
-    const needsActionCount = filtered.filter((n) => n.needsAction).length
+    const totalNotes = enrichedData.length
+    const totalValue = enrichedData.reduce((acc, n) => acc + (Number(n.valor) || 0), 0)
+    const overdueCount = enrichedData.filter((n) => n.isOverdue).length
+    const needsActionCount = enrichedData.filter((n) => n.needsAction).length
     return { totalNotes, totalValue, overdueCount, needsActionCount }
-  }, [filtered])
+  }, [enrichedData])
 
   const perUser = useMemo<UserAgg[]>(() => {
     const map = new Map<string, UserAgg>()
-    for (const n of filtered) {
+    for (const n of enrichedData) {
       const key = n.assignedTo
       if (!map.has(key)) {
         map.set(key, {
@@ -169,19 +134,42 @@ export default function SupervisorDashboard({
     }
     // Ordena por maior quantidade
     return Array.from(map.values()).sort((a, b) => b.count - a.count)
-  }, [filtered])
+  }, [enrichedData])
 
   const overdueList = useMemo(() => {
-    return filtered
+    return enrichedData
       .filter((n) => n.isOverdue)
       .sort((a, b) => b.overdueDays - a.overdueDays)
       .slice(0, 10)
-  }, [filtered])
+  }, [enrichedData])
 
   return (
     <div className="space-y-4">
       {/* Filtros globais também afetam a visão de supervisor */}
       <Filters />
+
+      {/* Indicador de erro ou carregamento */}
+      {error && (
+        <Card className="bg-red-950/30 border-red-800/40">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-200">
+                <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                <span className="text-sm">Erro ao carregar dados: {error}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refresh}
+                className="text-red-200 hover:text-red-100 hover:bg-red-900/30"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Tentar novamente
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cards de métricas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -189,23 +177,27 @@ export default function SupervisorDashboard({
           icon={<Files className="h-5 w-5" />}
           label="Notas Totais"
           value={totals.totalNotes.toString()}
+          loading={loading}
         />
         <MetricCard
           icon={<DollarSign className="h-5 w-5" />}
           label="Valor Total"
           value={formatBRL(totals.totalValue)}
+          loading={loading}
         />
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
           label="Em Atraso"
           value={totals.overdueCount.toString()}
           tone="amber"
+          loading={loading}
         />
         <MetricCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           label="Para Tratar"
           value={totals.needsActionCount.toString()}
           tone="emerald"
+          loading={loading}
         />
       </div>
 
@@ -215,6 +207,7 @@ export default function SupervisorDashboard({
           <CardTitle className="text-sm text-neutral-300 flex items-center gap-2">
             <UserIcon className="h-4 w-4" />
             Por Usuário (responsável)
+            {loading && <div className="animate-spin h-4 w-4 border-2 border-neutral-500 border-t-transparent rounded-full"></div>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -233,7 +226,16 @@ export default function SupervisorDashboard({
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-neutral-400 py-10">
-                      Carregando...
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin h-5 w-5 border-2 border-neutral-500 border-t-transparent rounded-full"></div>
+                        Carregando dados...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-red-400 py-10">
+                      Erro ao carregar dados. Verifique a conexão.
                     </TableCell>
                   </TableRow>
                 ) : perUser.length === 0 ? (
@@ -285,6 +287,7 @@ export default function SupervisorDashboard({
           <CardTitle className="text-sm text-neutral-300 flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Notas em Atraso (Top 10)
+            {loading && <div className="animate-spin h-4 w-4 border-2 border-neutral-500 border-t-transparent rounded-full"></div>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -302,7 +305,16 @@ export default function SupervisorDashboard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {overdueList.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-neutral-400 py-10">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin h-5 w-5 border-2 border-neutral-500 border-t-transparent rounded-full"></div>
+                        Carregando dados...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : overdueList.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-neutral-400 py-10">
                       Nenhuma nota em atraso nos filtros atuais.
@@ -343,11 +355,13 @@ function MetricCard({
   label,
   value,
   tone = "neutral",
+  loading = false,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   tone?: "neutral" | "amber" | "emerald"
+  loading?: boolean
 }) {
   const toneClasses =
     tone === "amber"
@@ -355,6 +369,7 @@ function MetricCard({
       : tone === "emerald"
       ? "border-emerald-800/40 bg-emerald-950/30 text-emerald-200"
       : "border-neutral-800 bg-neutral-900/60 text-neutral-200"
+  
   return (
     <Card className={cn("border", toneClasses)}>
       <CardHeader className="pb-2">
@@ -363,10 +378,19 @@ function MetricCard({
             {icon}
           </span>
           {label}
+          {loading && (
+            <div className="animate-spin h-3 w-3 border border-neutral-500 border-t-transparent rounded-full"></div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-xl font-semibold tabular-nums">{value}</div>
+        <div className="text-xl font-semibold tabular-nums">
+          {loading ? (
+            <div className="h-7 w-20 bg-neutral-800 animate-pulse rounded"></div>
+          ) : (
+            value
+          )}
+        </div>
       </CardContent>
     </Card>
   )
