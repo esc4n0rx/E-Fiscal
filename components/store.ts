@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import type { User } from "@/types/user"
 
 // Tipos do estado global
 type Filters = {
@@ -12,9 +13,9 @@ type Filters = {
 }
 
 type AppState = {
-  userName: string
+  user: User | null
   filters: Filters
-  setUserName: (name: string) => void
+  setUser: (user: User | null) => void
   setFilterText: (text: string) => void
   setFilterDateUpTo: (date: string) => void
   resetFilters: () => void
@@ -38,21 +39,21 @@ const defaultFilters: Filters = {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      userName: "",
+      user: null,
       filters: defaultFilters,
-      setUserName: (name) => set({ userName: name }),
+      setUser: (user) => set({ user }),
       setFilterText: (text) =>
         set((state) => ({ filters: { ...state.filters, text } })),
       setFilterDateUpTo: (date) =>
         set((state) => ({ filters: { ...state.filters, dateUpTo: date } })),
       resetFilters: () => set({ filters: defaultFilters }),
-      clearUser: () => set({ userName: "", filters: defaultFilters }),
+      clearUser: () => set({ user: null, filters: defaultFilters }),
     }),
     {
       name: "controle-notas-app",
-      version: 1,
+      version: 2,
       partialize: (state) => ({
-        userName: state.userName,
+        user: state.user,
         filters: state.filters,
       }),
     }

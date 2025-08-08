@@ -1,30 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { UserRound, ArrowRight } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 import { useAppStore } from "@/components/store"
 import ThemeToggle from "@/components/theme-toggle"
+import LoginForm from "@/components/auth/login-form"
+import type { User } from "@/types/user"
 
 export default function Page() {
   const router = useRouter()
-  const { userName, setUserName, resetFilters } = useAppStore()
-  const [name, setName] = useState(userName ?? "")
+  const { user, setUser, resetFilters } = useAppStore()
 
-  // Se já tiver nome salvo, envia direto para o dashboard
+  // Se já tiver usuário logado, envia direto para o dashboard
   useEffect(() => {
-    if (userName && userName.trim().length > 0) {
+    if (user && user.nome?.trim().length > 0) {
       router.replace("/dashboard")
     }
-  }, [userName, router])
+  }, [user, router])
 
-  const handleConfirm = () => {
-    if (!name.trim()) return
-    // Salva nome no estado global e reseta filtros
-    setUserName(name.trim())
+  const handleLoginSuccess = (userData: User) => {
+    // Salva usuário no estado global e reseta filtros
+    setUser(userData)
     resetFilters()
     router.push("/dashboard")
   }
@@ -43,43 +40,9 @@ export default function Page() {
         </header>
 
         <div className="mx-auto max-w-lg">
-          <Card className="bg-neutral-900 border-neutral-800">
-            <CardHeader>
-              <CardTitle className="text-neutral-100">Identificação</CardTitle>
-              <CardDescription className="text-neutral-400">
-                Digite seu nome para personalizar sua experiência.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="nome" className="text-sm font-medium text-neutral-300">
-                  Digite seu Nome
-                </label>
-                <Input
-                  id="nome"
-                  placeholder="Ex.: Maria Silva"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleConfirm()
-                  }}
-                  className="bg-neutral-950 border-neutral-800 text-neutral-100 placeholder:text-neutral-500"
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleConfirm}
-                  disabled={!name.trim()}
-                  className="bg-neutral-100 text-neutral-900 hover:bg-white disabled:opacity-50"
-                >
-                  Confirmar
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <LoginForm onSuccess={handleLoginSuccess} />
           <p className="mt-6 text-center text-xs text-neutral-500">
-            Este é um mock sem backend. Seu nome e filtros ficam apenas no seu navegador.
+            Sistema integrado com banco de dados. Seus dados ficam seguros no servidor.
           </p>
         </div>
       </div>
