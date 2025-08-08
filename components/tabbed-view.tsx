@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HomeIcon as House, CheckCircle, RotateCcw, HelpCircle } from 'lucide-react'
 import Filters from "@/components/filters"
 import NotesTable from "@/components/notes-table"
+import CategorizeButton from "@/components/categorize-button"
 import { useNotasByAba } from "@/hooks/use-notas"
 
 export default function TabbedView() {
@@ -12,6 +13,14 @@ export default function TabbedView() {
   const qualidade = useNotasByAba('qualidade')
   const devolucoes = useNotasByAba('devolucoes')
   const naoIdentificado = useNotasByAba('nao-identificado')
+
+  const handleCategorized = () => {
+    // Atualiza todas as abas após categorização
+    principal.refresh()
+    qualidade.refresh()
+    devolucoes.refresh()
+    naoIdentificado.refresh()
+  }
 
   return (
     <div>
@@ -28,14 +37,19 @@ export default function TabbedView() {
               <RotateCcw className="h-4 w-4 mr-2" /> Devoluções ({devolucoes.total})
             </TabsTrigger>
             <TabsTrigger value="nao-identificado" className="data-[state=active]:bg-neutral-800">
-              <HelpCircle className="h-4 w-4 mr-2" /> Não identificado ({naoIdentificado.total})
+            <HelpCircle className="h-4 w-4 mr-2" /> Não identificado ({naoIdentificado.total})
             </TabsTrigger>
           </TabsList>
 
           {/* Filtros globais (afetam todas as abas) */}
           <Filters />
 
-          <TabsContent value="principal" className="mt-0">
+          <TabsContent value="principal" className="mt-0 space-y-3">
+            {/* Botão de categorização - apenas na aba principal */}
+            <div className="flex justify-end">
+              <CategorizeButton onCategorized={handleCategorized} />
+            </div>
+            
             <NotesTable 
               title="Principal" 
               rows={principal.notes} 
