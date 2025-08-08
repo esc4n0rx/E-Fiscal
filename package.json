@@ -62,13 +62,14 @@
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
     "vaul": "^0.9.9",
+    "xlsx": "^0.18.5",
     "zod": "3.25.67",
     "zustand": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^22",
+    "@types/node": "^22.17.0",
     "@types/react": "18",
     "@types/react-dom": "18",
     "postcss": "^8.5",
